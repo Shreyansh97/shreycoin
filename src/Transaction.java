@@ -49,4 +49,53 @@ public class Transaction {
         return StringUtil.verifyECDSASig(sender, data, signature);
     }
 
+    public float getInputsValue() {
+        float total = 0;
+        for(TransactionInput i : inputs) {
+            if(i.UTXO == null)
+                continue;
+            total += i.UTXO.value;
+        }
+        return total;
+    }
+
+    public float getOutputsValue() {
+        float total = 0;
+        for (TransactionOutput o : outputs) {
+            total += o.value;
+        }
+        return total;
+    }
+
+    public boolean processTransaction() {
+        if(!verifySignature()) {
+            System.out.println("#Transaction Signature failed to verify");
+            return false;
+        }
+
+        for (TransactionInput i : inputs) {
+            i.UTXO = Main.UTXOs.get(i.transactionOutputId);
+        }
+
+        if (getInputsValue() < Main.minimumTransaction) {
+            System.out.println("#Transaction inputs too small" + getInputsValue());
+            return false;
+        }
+
+        float leftOver = getInputsValue() - value;
+        transactionId = calculateHash();
+        outputs.add(new TransactionOutput(reciepient, value, transactionId));
+        outputs.add(new TransactionOutput(sender, leftOver, transactionId));
+
+        for (TransactionOutput o : outputs)
+            Main.UTXOs.put(o.id, o);
+
+        for (TransactionInput i : inputs) {
+            if (i.UTXO == null)
+                continue;
+            Main.UTXOs.remove(i.UTXO.id);
+        }
+
+        return true;
+    }
 }
